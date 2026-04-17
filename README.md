@@ -35,5 +35,4 @@ Because the script includes `@downloadURL` and `@updateURL` metadata pointing at
 
 ## Repository Layout
 
-- [torn-vital-bars-polish](/Users/dominique/Projects/torn_addons/torn-vital-bars-polish): current userscript and previews
-
+- [torn-vital-bars-polish](./torn-vital-bars-polish): current userscript and previews
