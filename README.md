@@ -10,6 +10,8 @@ This repository is intentionally conservative. Scripts here are designed to stay
 
 A focused userscript that improves the visible `Energy`, `Nerve`, `Happy`, `Life`, and `Chain` bars in Torn's sidebar while keeping the original layout and information structure intact.
 
+<img src="./torn-vital-bars-polish/preview-current.png" alt="Torn Vital Bars Polish preview" width="180" />
+
 What it does:
 
 - Refines the visible vital bars only
@@ -34,5 +36,4 @@ Because the script includes `@downloadURL` and `@updateURL` metadata pointing at
 ## Repository Layout
 
 - [torn-vital-bars-polish](/Users/dominique/Projects/torn_addons/torn-vital-bars-polish): current userscript and previews
-
 
