@@ -6,6 +6,35 @@ This repository is intentionally conservative. Scripts here are designed to stay
 
 ## Scripts
 
+### Faction War Profile Status Banner
+
+A profile-page userscript that displays a large `ONLINE` banner only when the viewed player is online and their faction is currently at war with yours.
+
+What it does:
+
+- Reads the visible status indicator on the currently open profile page
+- Reads the visible faction name on the currently open profile page
+- Uses Torn's official API to cache your faction's active war opponents
+- Shows a high-contrast `ONLINE` banner only for online enemy war profiles
+- Stores the API key locally in userscript storage
+- Works with a `Public Only` API key because it only needs `faction -> basic`
+- Keeps API usage minimal by caching war opponents and matching profiles by visible faction name
+
+Example banner shown on a matching profile:
+
+<img src="./faction-war-profile-status-banner/preview-current.png" alt="Faction War Profile Status Banner example" width="780" />
+
+What it does not do:
+
+- No automation
+- No non-API Torn requests
+- No hidden-page scraping
+- No background monitoring of other pages or tabs
+
+Install:
+
+ - Load `faction-war-profile-status-banner/faction-war-profile-status-banner.user.js` in Tampermonkey or Violentmonkey, then open a Torn profile page and save a Torn API key in the inline setup panel
+
 ### Torn Vital Bars Polish
 
 A focused userscript that improves the visible `Energy`, `Nerve`, `Happy`, `Life`, and `Chain` bars in Torn's sidebar while keeping the original layout and information structure intact.
@@ -35,4 +64,5 @@ Because the script includes `@downloadURL` and `@updateURL` metadata pointing at
 
 ## Repository Layout
 
+- [faction-war-profile-status-banner](./faction-war-profile-status-banner): profile page online-status callout userscript
 - [torn-vital-bars-polish](./torn-vital-bars-polish): current userscript and previews
