@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Faction War Profile Status Banner
 // @namespace    https://github.com/phantium/torn-userscripts
-// @version      0.5.0
+// @version      0.5.1
 // @description  Shows a large ONLINE banner on Torn profile pages when the viewed player is online and their faction is currently at war with yours.
 // @author       Phantium
 // @homepageURL  https://github.com/phantium/torn-userscripts
