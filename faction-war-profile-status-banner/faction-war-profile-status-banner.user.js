@@ -30,8 +30,8 @@
   const SCAN_LIMIT = 250;
   const WAR_CACHE_TTL_MS = 10 * 60 * 1000;
   const MIN_API_INTERVAL_MS = 15 * 1000;
-  const VIEW_RETRY_DELAY_MS = 300;
-  const MAX_VIEW_RETRIES = 8;
+  const VIEW_RETRY_DELAY_MS = 400;
+  const MAX_VIEW_RETRIES = 12;
   const FACTION_API_URL = "https://api.torn.com/faction/?selections=basic";
 
   let lastKnownUrl = location.href;
@@ -510,6 +510,22 @@
   }
 
   function findVisibleStatus() {
+    const explicitStatusSelectors = [
+      "#profileroot .basic-info li[class*='user-status-16-']",
+      "#profileroot li[class*='user-status-16-']",
+    ];
+
+    for (const selector of explicitStatusSelectors) {
+      const matches = document.querySelectorAll(selector);
+      for (const element of matches) {
+        const className = element.getAttribute("class") || "";
+        const normalized = normalizeStatus(className.replace(/[-_]/g, " "));
+        if (normalized) {
+          return normalized;
+        }
+      }
+    }
+
     const selectors = [
       "[title]",
       "[aria-label]",
@@ -554,6 +570,10 @@
 
   function readVisibleFactionName() {
     const selectors = [
+      "#profileroot .basic-info .user-info-value a[href*='/factions.php?step=profile']",
+      "#profileroot .basic-info .user-info-value a[href*='factions.php?step=profile']",
+      "#profileroot a.t-blue[href*='/factions.php?step=profile']",
+      "#profileroot a.t-blue[href*='factions.php?step=profile']",
       "a[href*='factions.php?step=profile']",
       "a[href*='factions.php'][href*='step=profile']",
       "a[href*='factions.php?ID=']",
