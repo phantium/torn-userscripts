@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Torn Vital Bars Polish
 // @namespace    https://github.com/phantium/torn-userscripts
-// @version      0.5.0
+// @version      0.5.3
 // @description  Refines Torn's visible sidebar with native-feeling density and cleaner vital bars.
 // @author       Phantium
 // @homepageURL  https://github.com/phantium/torn-userscripts
@@ -22,10 +22,20 @@
   const TVBP_ATTR = "data-tvbp-bar";
   const MAX_VISIBLE_TICKS = 9;
   const TICKS_STORAGE_KEY = "tvbp-show-ticks";
+  const BAR_MATCH_SELECTOR = ".bar___Bv5Ho.bar-desktop___p5Cas, .chain-bar___vjdPL.bar-desktop___F8PEF";
   const BAR_SELECTOR = [
     `${VITALS_SCOPE} .bar___Bv5Ho.bar-desktop___p5Cas`,
     `${VITALS_SCOPE} .chain-bar___vjdPL.bar-desktop___F8PEF`,
   ].join(", ");
+  const BAR_PARTS = {
+    label: ".bar-name___cHBD8, .bar-name___EcY8p",
+    value: ".bar-value___NTdce, .bar-value___uxnah",
+    timer: ".bar-descr___muXn5, .bar-timeleft___B9RGV",
+    progress: ".progress-line___FhcBg, .progress-line___NJ6XG",
+    progressTimer: ".progress-line-timer___uV1ZZ",
+    ticks: ".tick-list___GeD3y li, .tick-list___McObN li",
+  };
+  const barPartCache = new WeakMap();
 
   const LABEL_CONFIG = {
     energy: {
@@ -62,9 +72,9 @@
 
   function getTickVisibility() {
     try {
-      return localStorage.getItem(TICKS_STORAGE_KEY) !== "0";
+      return localStorage.getItem(TICKS_STORAGE_KEY) === "1";
     } catch {
-      return true;
+      return false;
     }
   }
 
@@ -95,8 +105,6 @@
       ticksEnabled ? "Torn Vital Bars Polish: Hide ticks" : "Torn Vital Bars Polish: Show ticks",
       () => {
         setTickVisibility(!ticksEnabled);
-        applyTickVisibility();
-        syncAllBars();
         window.location.reload();
       }
     );
@@ -137,10 +145,6 @@
         background: transparent;
         box-shadow: none;
         text-decoration: none;
-        transition:
-          background-color 180ms ease,
-          box-shadow 180ms ease,
-          border-color 180ms ease;
       }
 
       #${ROOT_ID} [${TVBP_ATTR}="true"]:hover {
@@ -242,7 +246,6 @@
         background:
           linear-gradient(90deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02));
         box-shadow: none;
-        transition: width 220ms ease, opacity 180ms ease;
       }
 
       #${ROOT_ID} [${TVBP_ATTR}="true"] .progress-line___FhcBg,
@@ -254,14 +257,7 @@
         min-height: 0;
         border-radius: inherit;
         background: var(--tvbp-tone, linear-gradient(90deg, #6ed884, #3c9958));
-        box-shadow:
-          inset 0 1px 0 rgba(255, 255, 255, 0.14),
-          0 0 4px var(--tvbp-glow, rgba(255, 255, 255, 0.08));
-        transition:
-          width 220ms ease,
-          filter 180ms ease,
-          opacity 180ms ease,
-          box-shadow 180ms ease;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
       }
 
       #${ROOT_ID} [${TVBP_ATTR}="true"] .progress-line___FhcBg::after,
@@ -272,14 +268,7 @@
         background:
           linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)),
           linear-gradient(90deg, rgba(255, 255, 255, 0.02), transparent 24%);
-        mix-blend-mode: screen;
         pointer-events: none;
-      }
-
-      #${ROOT_ID} [${TVBP_ATTR}="true"][data-tvbp-low="true"] .progress-line___FhcBg,
-      #${ROOT_ID} [${TVBP_ATTR}="true"][data-tvbp-low="true"] .progress-line___NJ6XG {
-        filter: saturate(1.08) brightness(1.03);
-        animation: tvbp-low-breathe 1.8s ease-in-out infinite;
       }
 
       #${ROOT_ID} [${TVBP_ATTR}="true"][data-tvbp-low="true"] {
@@ -288,23 +277,13 @@
 
       #${ROOT_ID} [${TVBP_ATTR}="true"][data-tvbp-ready="true"] .progress-line___FhcBg,
       #${ROOT_ID} [${TVBP_ATTR}="true"][data-tvbp-ready="true"] .progress-line___NJ6XG {
-        box-shadow:
-          inset 0 1px 0 rgba(255, 255, 255, 0.16),
-          0 0 8px color-mix(in srgb, var(--tvbp-glow, rgba(255, 255, 255, 0.12)) 50%, transparent);
-      }
-
-      #${ROOT_ID} [${TVBP_ATTR}="true"][data-tvbp-key="energy"][data-tvbp-ready="true"] .progress-line___FhcBg,
-      #${ROOT_ID} [${TVBP_ATTR}="true"][data-tvbp-key="energy"][data-tvbp-ready="true"] .progress-line___NJ6XG,
-      #${ROOT_ID} [${TVBP_ATTR}="true"][data-tvbp-key="nerve"][data-tvbp-ready="true"] .progress-line___FhcBg,
-      #${ROOT_ID} [${TVBP_ATTR}="true"][data-tvbp-key="nerve"][data-tvbp-ready="true"] .progress-line___NJ6XG {
-        animation: tvbp-full-pulse 2.2s ease-in-out infinite;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
       }
 
       #${ROOT_ID} [${TVBP_ATTR}="true"][data-tvbp-key="energy"][data-tvbp-ready="true"] .progress___z5tk3,
       #${ROOT_ID} [${TVBP_ATTR}="true"][data-tvbp-key="energy"][data-tvbp-ready="true"] .progress___onlYW,
       #${ROOT_ID} [${TVBP_ATTR}="true"][data-tvbp-key="nerve"][data-tvbp-ready="true"] .progress___z5tk3,
       #${ROOT_ID} [${TVBP_ATTR}="true"][data-tvbp-key="nerve"][data-tvbp-ready="true"] .progress___onlYW {
-        animation: tvbp-full-shell-pulse 2.2s ease-in-out infinite;
         transform-origin: center;
       }
 
@@ -312,7 +291,7 @@
       #${ROOT_ID} [${TVBP_ATTR}="true"][data-tvbp-key="energy"][data-tvbp-ready="true"] .bar-timeleft___B9RGV,
       #${ROOT_ID} [${TVBP_ATTR}="true"][data-tvbp-key="nerve"][data-tvbp-ready="true"] .bar-descr___muXn5,
       #${ROOT_ID} [${TVBP_ATTR}="true"][data-tvbp-key="nerve"][data-tvbp-ready="true"] .bar-timeleft___B9RGV {
-        animation: tvbp-full-chip-pulse 1.8s ease-in-out infinite;
+        transform: scale(1.02);
       }
 
       #${ROOT_ID} [${TVBP_ATTR}="true"] .tick-list___GeD3y,
@@ -344,17 +323,12 @@
         border-radius: 999px;
         background: rgba(255, 255, 255, 0.1);
         opacity: 0.12;
-        transition:
-          background-color 180ms ease,
-          opacity 180ms ease,
-          box-shadow 180ms ease;
       }
 
       #${ROOT_ID} [${TVBP_ATTR}="true"] .tick-list___GeD3y li[data-tvbp-tick="active"],
       #${ROOT_ID} [${TVBP_ATTR}="true"] .tick-list___McObN li[data-tvbp-tick="active"] {
         background: color-mix(in srgb, var(--tvbp-accent, #ffffff) 82%, #ffffff 18%);
         opacity: 0.56;
-        box-shadow: 0 0 2px color-mix(in srgb, var(--tvbp-glow, rgba(255, 255, 255, 0.08)) 24%, transparent);
       }
 
       #${ROOT_ID} [${TVBP_ATTR}="true"] .tick-list___GeD3y li[data-tvbp-tick="edge"],
@@ -369,59 +343,10 @@
         opacity: 0.48;
       }
 
-      @keyframes tvbp-low-breathe {
-        0%, 100% {
-          filter: saturate(1.12) brightness(1.02);
-        }
-        50% {
-          filter: saturate(1.28) brightness(1.08);
-        }
-      }
-
-      @keyframes tvbp-full-pulse {
-        0%, 100% {
-          filter: saturate(1) brightness(1);
-          box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.16),
-            0 0 8px color-mix(in srgb, var(--tvbp-glow, rgba(255, 255, 255, 0.12)) 50%, transparent);
-        }
-        50% {
-          filter: saturate(1.1) brightness(1.06);
-          box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.2),
-            0 0 16px color-mix(in srgb, var(--tvbp-glow, rgba(255, 255, 255, 0.2)) 78%, transparent);
-        }
-      }
-
-      @keyframes tvbp-full-shell-pulse {
-        0%, 100% {
-          filter: saturate(1) brightness(1);
-          box-shadow:
-            inset 0 1px 1px rgba(0, 0, 0, 0.32),
-            inset 0 0 0 1px rgba(255, 255, 255, 0.025),
-            0 1px 0 rgba(255, 255, 255, 0.02);
-        }
-        50% {
-          filter: saturate(1.12) brightness(1.08);
-          box-shadow:
-            inset 0 1px 1px rgba(0, 0, 0, 0.28),
-            inset 0 0 0 1px color-mix(in srgb, var(--tvbp-accent, #ffffff) 34%, rgba(255, 255, 255, 0.02) 66%),
-            0 0 8px color-mix(in srgb, var(--tvbp-glow, rgba(255, 255, 255, 0.12)) 55%, transparent);
-        }
-      }
-
-      @keyframes tvbp-full-chip-pulse {
-        0%, 100% {
-          transform: scale(1);
-          filter: saturate(1) brightness(1);
-          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-        }
-        50% {
-          transform: scale(1.06);
-          filter: saturate(1.08) brightness(1.08);
-          box-shadow:
-            inset 0 0 0 1px color-mix(in srgb, var(--tvbp-accent, #eaf0f7) 24%, rgba(255, 255, 255, 0.08) 76%),
-            0 0 8px color-mix(in srgb, var(--tvbp-glow, rgba(255, 255, 255, 0.12)) 55%, transparent);
+      @media (prefers-reduced-motion: reduce) {
+        #${ROOT_ID} [${TVBP_ATTR}="true"],
+        #${ROOT_ID} [${TVBP_ATTR}="true"] * {
+          transition: none !important;
         }
       }
     `;
@@ -437,9 +362,93 @@
     return Boolean(node.closest(VITALS_SCOPE));
   }
 
+  function getBarParts(bar) {
+    const cached = barPartCache.get(bar);
+
+    if (cached && (!cached.label || cached.label.isConnected)) {
+      return cached;
+    }
+
+    const showTicks = getTickVisibility();
+    const parts = {
+      label: bar.querySelector(BAR_PARTS.label),
+      value: bar.querySelector(BAR_PARTS.value),
+      timer: bar.querySelector(BAR_PARTS.timer),
+      progress: bar.querySelector(BAR_PARTS.progress),
+      progressTimer: bar.querySelector(BAR_PARTS.progressTimer),
+      ticks: showTicks ? [...bar.querySelectorAll(BAR_PARTS.ticks)] : [],
+    };
+
+    barPartCache.set(bar, parts);
+    return parts;
+  }
+
+  function invalidateBarParts(bar) {
+    if (bar instanceof HTMLElement) {
+      barPartCache.delete(bar);
+    }
+  }
+
   function getBarLabel(bar) {
-    const label = bar.querySelector(".bar-name___cHBD8, .bar-name___EcY8p");
-    return normalizeLabel(label?.textContent || "");
+    return normalizeLabel(getBarParts(bar).label?.textContent || "");
+  }
+
+  function setDatasetValue(element, key, value) {
+    if (element.dataset[key] !== value) {
+      element.dataset[key] = value;
+    }
+  }
+
+  function deleteDatasetValue(element, key) {
+    if (key in element.dataset) {
+      delete element.dataset[key];
+    }
+  }
+
+  function setStyleValue(element, property, value) {
+    if (element.style.getPropertyValue(property) !== value) {
+      element.style.setProperty(property, value);
+    }
+  }
+
+  function clearStyleValue(element, property) {
+    if (element.style.getPropertyValue(property)) {
+      element.style.removeProperty(property);
+    }
+  }
+
+  function getBarFromMutationTarget(target) {
+    const element = target instanceof Element ? target : target.parentElement;
+
+    if (!element) {
+      return null;
+    }
+
+    if (element.matches(BAR_MATCH_SELECTOR)) {
+      return element;
+    }
+
+    return element.closest(BAR_MATCH_SELECTOR);
+  }
+
+  function nodeContainsVitals(node) {
+    if (!(node instanceof Element)) {
+      return false;
+    }
+
+    return (
+      node.matches(VITALS_SCOPE) ||
+      node.matches(BAR_MATCH_SELECTOR) ||
+      Boolean(node.querySelector(`${VITALS_SCOPE}, ${BAR_MATCH_SELECTOR}`))
+    );
+  }
+
+  function childListTouchesVitals(mutation) {
+    if (nodeContainsVitals(mutation.target)) {
+      return true;
+    }
+
+    return [...mutation.addedNodes].some(nodeContainsVitals);
   }
 
   function parseRatio(text) {
@@ -463,57 +472,54 @@
 
   function syncBar(bar) {
     if (!isInsideVitalsSection(bar)) {
-      delete bar.dataset.tvbpBar;
+      deleteDatasetValue(bar, "tvbpBar");
       return;
     }
 
     const key = getBarLabel(bar);
     const config = LABEL_CONFIG[key];
     if (!config) {
-      delete bar.dataset.tvbpBar;
+      deleteDatasetValue(bar, "tvbpBar");
       return;
     }
 
-    const valueNode = bar.querySelector(".bar-value___NTdce, .bar-value___uxnah");
-    const timerNode = bar.querySelector(".bar-descr___muXn5, .bar-timeleft___B9RGV");
-    const progressNode = bar.querySelector(".progress-line___FhcBg, .progress-line___NJ6XG");
-    const progressTimerNode = bar.querySelector(".progress-line-timer___uV1ZZ");
-    const ticks = [...bar.querySelectorAll(".tick-list___GeD3y li, .tick-list___McObN li")];
+    const showTicks = getTickVisibility();
+    const { value, timer, progress, progressTimer, ticks } = getBarParts(bar);
 
-    const ratio = parseRatio(valueNode?.textContent || "");
-    const timerText = (timerNode?.textContent || "").trim().toUpperCase();
+    const ratio = parseRatio(value?.textContent || "");
+    const timerText = (timer?.textContent || "").trim().toUpperCase();
     const isReady = timerText === "FULL" || (key === "chain" && timerText === "00:00") || ratio.ratio >= 0.995;
     const isLow = ratio.ratio > 0 && ratio.ratio <= config.lowThreshold;
 
-    bar.dataset.tvbpBar = "true";
-    bar.dataset.tvbpKey = key;
-    bar.dataset.tvbpReady = String(isReady);
-    bar.dataset.tvbpLow = String(isLow);
-    bar.style.setProperty("--tvbp-accent", config.accent);
-    bar.style.setProperty("--tvbp-glow", config.glow);
-    bar.style.setProperty("--tvbp-tone", config.tone);
+    setDatasetValue(bar, "tvbpBar", "true");
+    setDatasetValue(bar, "tvbpKey", key);
+    setDatasetValue(bar, "tvbpReady", String(isReady));
+    setDatasetValue(bar, "tvbpLow", String(isLow));
+    setStyleValue(bar, "--tvbp-accent", config.accent);
+    setStyleValue(bar, "--tvbp-glow", config.glow);
+    setStyleValue(bar, "--tvbp-tone", config.tone);
 
-    if (progressNode && key === "chain" && ratio.current === 0 && ratio.max > 0) {
-      progressNode.style.minWidth = "0";
-    } else if (progressNode) {
-      progressNode.style.minWidth = "";
+    if (progress && key === "chain" && ratio.current === 0 && ratio.max > 0) {
+      setStyleValue(progress, "min-width", "0");
+    } else if (progress) {
+      clearStyleValue(progress, "min-width");
     }
 
-    if (progressTimerNode && isReady) {
-      progressTimerNode.style.opacity = "0.16";
-    } else if (progressTimerNode) {
-      progressTimerNode.style.opacity = "";
+    if (progressTimer && isReady) {
+      setStyleValue(progressTimer, "opacity", "0.16");
+    } else if (progressTimer) {
+      clearStyleValue(progressTimer, "opacity");
     }
 
-    if (ticks.length > 0) {
+    if (ticks.length > 0 && showTicks) {
       const visibleTicks = ticks.slice(0, MAX_VISIBLE_TICKS);
 
       ticks.forEach((tick, index) => {
         if (index < MAX_VISIBLE_TICKS) {
-          delete tick.dataset.tvbpHidden;
+          deleteDatasetValue(tick, "tvbpHidden");
         } else {
-          tick.dataset.tvbpHidden = "true";
-          delete tick.dataset.tvbpTick;
+          setDatasetValue(tick, "tvbpHidden", "true");
+          deleteDatasetValue(tick, "tvbpTick");
         }
       });
 
@@ -522,16 +528,21 @@
       const hasEdge = scaled > completed && completed < visibleTicks.length;
 
       visibleTicks.forEach((tick, index) => {
-        delete tick.dataset.tvbpTick;
+        deleteDatasetValue(tick, "tvbpTick");
 
         if (isReady || index < completed) {
-          tick.dataset.tvbpTick = "active";
+          setDatasetValue(tick, "tvbpTick", "active");
           return;
         }
 
         if (hasEdge && index === completed) {
-          tick.dataset.tvbpTick = "edge";
+          setDatasetValue(tick, "tvbpTick", "edge");
         }
+      });
+    } else if (ticks.length > 0) {
+      ticks.forEach((tick) => {
+        deleteDatasetValue(tick, "tvbpHidden");
+        deleteDatasetValue(tick, "tvbpTick");
       });
     }
   }
@@ -554,16 +565,66 @@
       return;
     }
 
-    const observer = new MutationObserver(() => {
-      syncAllBars();
+    let queuedAllBars = false;
+    let queuedFrame = 0;
+    const queuedBars = new Set();
+
+    const flushQueuedSync = () => {
+      queuedFrame = 0;
+
+      if (queuedAllBars) {
+        queuedAllBars = false;
+        queuedBars.clear();
+        syncAllBars();
+        return;
+      }
+
+      const bars = [...queuedBars];
+      queuedBars.clear();
+      bars.forEach((bar) => {
+        if (bar.isConnected && bar instanceof HTMLElement) {
+          syncBar(bar);
+        }
+      });
+    };
+
+    const queueSync = (bar) => {
+      if (bar instanceof HTMLElement) {
+        queuedBars.add(bar);
+      } else {
+        queuedAllBars = true;
+      }
+
+      if (!queuedFrame) {
+        queuedFrame = window.requestAnimationFrame(flushQueuedSync);
+      }
+    };
+
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === "childList") {
+          if (mutation.addedNodes.length || mutation.removedNodes.length) {
+            const bar = getBarFromMutationTarget(mutation.target);
+            if (!bar && !childListTouchesVitals(mutation)) {
+              return;
+            }
+            invalidateBarParts(bar);
+            queueSync(bar);
+          }
+          return;
+        }
+
+        const bar = getBarFromMutationTarget(mutation.target);
+        if (bar) {
+          queueSync(bar);
+        }
+      });
     });
 
     observer.observe(root, {
       childList: true,
       subtree: true,
       characterData: true,
-      attributes: true,
-      attributeFilter: ["style", "class"],
     });
   }
 
