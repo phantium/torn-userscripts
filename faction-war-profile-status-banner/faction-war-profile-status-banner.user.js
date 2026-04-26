@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Faction War Profile Status Banner
 // @namespace    https://github.com/phantium/torn-userscripts
-// @version      0.5.1
+// @version      0.5.2
 // @description  Shows a large ONLINE banner on Torn profile pages when the viewed player is online and their faction is currently at war with yours.
 // @author       Phantium
 // @homepageURL  https://github.com/phantium/torn-userscripts
@@ -420,8 +420,16 @@
   }
 
   function setBannerVisible(visible) {
-    const banner = mountElement(getBanner());
-    banner.dataset.visible = visible ? "true" : "false";
+    const existingBanner = document.getElementById(BANNER_ID);
+    if (!visible && !existingBanner) {
+      return;
+    }
+
+    const banner = visible ? mountElement(existingBanner || getBanner()) : existingBanner;
+    const nextValue = visible ? "true" : "false";
+    if (banner.dataset.visible !== nextValue) {
+      banner.dataset.visible = nextValue;
+    }
   }
 
   function setSetupVisible(visible) {
@@ -436,9 +444,12 @@
     const panel = mountElement(existingPanel || getSetupPanel());
     const input = panel.querySelector(".tpob-setup-input");
     const status = panel.querySelector(".tpob-setup-status");
-    panel.dataset.visible = "true";
-    panel.hidden = false;
-    panel.style.display = "block";
+    if (panel.dataset.visible !== "true") {
+      panel.dataset.visible = "true";
+    }
+    if (panel.hidden) {
+      panel.hidden = false;
+    }
 
     if (input) {
       input.value = getStoredApiKey();
@@ -494,29 +505,26 @@
     const hasStatusWord = STATUS_TOKENS.some((token) => descriptor.includes(token));
     const classHints = /status|state|online|offline|idle/.test(descriptor);
     const isIconishTag = ["img", "svg", "span", "i", "b", "ins"].includes(tag);
-    const rect = typeof element.getBoundingClientRect === "function" ? element.getBoundingClientRect() : null;
-    const isSmallBadge = rect ? rect.width <= 40 && rect.height <= 40 : false;
-
-    return hasStatusWord || classHints || (isIconishTag && isSmallBadge);
+    return hasStatusWord || classHints || isIconishTag;
   }
 
-  function getCandidateRoots() {
-    return [
-      document.querySelector("#profileroot"),
-      document.querySelector("#mainContainer"),
-      document.querySelector("main"),
-      document.body,
-    ].filter(Boolean);
+  function getProfileRoot() {
+    return document.querySelector("#profileroot") || document.querySelector("#mainContainer") || document.querySelector("main") || document.body;
   }
 
   function findVisibleStatus() {
+    const root = getProfileRoot();
+    if (!root) {
+      return null;
+    }
+
     const explicitStatusSelectors = [
-      "#profileroot .basic-info li[class*='user-status-16-']",
-      "#profileroot li[class*='user-status-16-']",
+      ".basic-info li[class*='user-status-16-']",
+      "li[class*='user-status-16-']",
     ];
 
     for (const selector of explicitStatusSelectors) {
-      const matches = document.querySelectorAll(selector);
+      const matches = root.querySelectorAll(selector);
       for (const element of matches) {
         const className = element.getAttribute("class") || "";
         const normalized = normalizeStatus(className.replace(/[-_]/g, " "));
@@ -540,27 +548,25 @@
 
     const seen = new Set();
 
-    for (const root of getCandidateRoots()) {
-      for (const selector of selectors) {
-        const matches = root.querySelectorAll(selector);
-        for (const element of matches) {
-          if (seen.has(element)) {
-            continue;
-          }
+    for (const selector of selectors) {
+      const matches = root.querySelectorAll(selector);
+      for (const element of matches) {
+        if (seen.has(element)) {
+          continue;
+        }
 
-          seen.add(element);
-          if (!isLikelyStatusNode(element)) {
-            continue;
-          }
+        seen.add(element);
+        if (seen.size >= SCAN_LIMIT) {
+          return null;
+        }
 
-          const status = normalizeStatus(collectAttributeText(element));
-          if (status) {
-            return status;
-          }
+        if (!isLikelyStatusNode(element)) {
+          continue;
+        }
 
-          if (seen.size >= SCAN_LIMIT) {
-            return null;
-          }
+        const status = normalizeStatus(collectAttributeText(element));
+        if (status) {
+          return status;
         }
       }
     }
@@ -569,24 +575,27 @@
   }
 
   function readVisibleFactionName() {
+    const root = getProfileRoot();
+    if (!root) {
+      return "";
+    }
+
     const selectors = [
-      "#profileroot .basic-info .user-info-value a[href*='/factions.php?step=profile']",
-      "#profileroot .basic-info .user-info-value a[href*='factions.php?step=profile']",
-      "#profileroot a.t-blue[href*='/factions.php?step=profile']",
-      "#profileroot a.t-blue[href*='factions.php?step=profile']",
+      ".basic-info .user-info-value a[href*='/factions.php?step=profile']",
+      ".basic-info .user-info-value a[href*='factions.php?step=profile']",
+      "a.t-blue[href*='/factions.php?step=profile']",
+      "a.t-blue[href*='factions.php?step=profile']",
       "a[href*='factions.php?step=profile']",
       "a[href*='factions.php'][href*='step=profile']",
       "a[href*='factions.php?ID=']",
     ];
 
-    for (const root of getCandidateRoots()) {
-      for (const selector of selectors) {
-        const matches = root.querySelectorAll(selector);
-        for (const element of matches) {
-          const text = normalizeFactionName(element.textContent);
-          if (text) {
-            return text;
-          }
+    for (const selector of selectors) {
+      const matches = root.querySelectorAll(selector);
+      for (const element of matches) {
+        const text = normalizeFactionName(element.textContent);
+        if (text) {
+          return text;
         }
       }
     }
@@ -828,8 +837,15 @@
 
   async function syncBanner(options = {}) {
     const apiKey = getStoredApiKey();
-    const profileState = readProfileViewState();
     const viewRetryCount = options.viewRetryCount || 0;
+
+    if (document.hidden) {
+      renderState({
+        showSetup: false,
+        showBanner: false,
+      });
+      return;
+    }
 
     if (!apiKey) {
       renderState({
@@ -839,13 +855,7 @@
       return;
     }
 
-    if (document.hidden) {
-      renderState({
-        showSetup: false,
-        showBanner: false,
-      });
-      return;
-    }
+    const profileState = readProfileViewState();
 
     if (profileState.status !== "online") {
       if (!profileState.status && viewRetryCount < MAX_VIEW_RETRIES) {
@@ -923,6 +933,12 @@
 
     window.addEventListener("popstate", () => {
       handleUrlChange();
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) {
+        scheduleSync(0);
+      }
     });
   }
 
